@@ -1,10 +1,15 @@
 import subprocess
 
+import sys
+sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
 
+from gini_main import * ##file_checker
+import CONSTANTS
 def General_Munge(filePathInp:str,kwargs):
     import subprocess
-    extras_LDSC_files="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/Munged_results/"
-    # kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=extras_LDSC_files,a1="Allele1",a2="Allele2",p="PvalueARE")
+    import sys
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS 
         
     fileName=""
     filePathInp=filePathInp.replace("\n","")
@@ -15,7 +20,7 @@ def General_Munge(filePathInp:str,kwargs):
     output_file_name=fileName.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","")
     
     new_el=""
-    out_file_name=kwargs.pop('out',"/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/Munged_results/")+output_file_name
+    out_file_name=kwargs.pop('out',CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"])+"/"+output_file_name
     new_el+=f"""--sumstats {filePathInp} \
         --out {out_file_name} \
         --a1 {kwargs.pop('a1',"A1")} \
@@ -55,7 +60,13 @@ def General_Munge(filePathInp:str,kwargs):
 def HeritabilityLDSC(filePathInp_Munged):
     import subprocess
 
-    kwargs_Munged=dict(out="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/Heritability_Results/",
+    
+    import sys
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS
+
+
+    kwargs_Munged=dict(out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/",
                        ref_ld_chr="/ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/1000G_EUR_Phase3_baseline/baseline.",
                        frqfile_chr="/ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/1000G_Phase3_frq/1000G.EUR.QC.",
                        w_ld_chr="/ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/weights_hm3_no_hla/weights.")
@@ -73,7 +84,7 @@ def HeritabilityLDSC(filePathInp_Munged):
     
 
     new_el=""
-    out_heritable_file=kwargs.pop('out',"/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/Heritability_Results/")+fileOutName
+    out_heritable_file=kwargs.pop('out',CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/")+fileOutName
 
     new_el=f"""--out {out_heritable_file} \
         --ref-ld-chr {kwargs.pop('ref_ld_chr',"/ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/1000G_EUR_Phase3_baseline/baseline.")} \
@@ -101,17 +112,20 @@ def HeritabilityLDSC(filePathInp_Munged):
 def Heritability_Log_Extraction(input_file_arr:list):
     import pandas as pd
     import re
+    
+    import sys
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS
+
     # input_file="/ifs/loni/faculty/njahansh/nerds/ankush/webApplication_Genome/Git_Genome/GenomeAPI_2/File_Path_text_Files/metaAnalysisHeritabilityLog.txt"
     df_final=pd.DataFrame(columns = ["Trait Name","h\u00b2", "h\u00b2 SE", "Mean Chi\u00b2","LambdaGC", "Intercept","Intercept SE","Ratio"])
-
+    out_file_name="_".join(input_file_arr[0].split("/")[-1].split(CONSTANTS.sep_btw_study_trait)[0].split("_")[1:])+"_"+str(len(input_file_arr))
     # with open(input_file,"r") as lines:
     for line in input_file_arr:
         line=line.strip("\r")
         line=line.strip("\n")
-        trait_name="_".join(line.split("/")[-1].split("1RE")[0].split("_")[1:])
+        trait_name="_".join(line.split("/")[-1].split(CONSTANTS.sep_btw_study_trait)[1].split("_")[1:]).strip(".log").strip("sumstats")
 
-        if not (trait_name.split("_")[0] in ["Total","Witelson5"] and trait_name.split("_")[-1] in ["Area","MeanThickness"]):
-            continue
 
         with open(line, "r") as file:
             content = file.read()
@@ -145,17 +159,10 @@ def Heritability_Log_Extraction(input_file_arr:list):
             her_1_dict["Intercept SE"]=intercept_1_se
             her_1_dict["Ratio"]=ratio_1
 
-        print("Heritability of phenotype 1:")
-        print("Total Observed scale h2:", total_h2_1)
-        print("Total Observed scale h2 in bracket:", total_h2_1_se)
-        print("Lambda GC:", lambda_gc_1)
-        print("Mean Chi^2:", mean_chi2_1)
-        print("Intercept:", intercept_1)
-        print("Intercept in bracket:", intercept_1_se)
-        print("Ratio:", ratio_1)
-        print("Ratio in bracket:", ratio_1_se)
+        new_row_df = pd.DataFrame([her_1_dict])
 
-        df_final=df_final.append(her_1_dict,ignore_index = True)
+        df_final = pd.concat([df_final, new_row_df], ignore_index=True)
 
-    df_final.to_csv("/ifs/loni/faculty/njahansh/GAMBIT/genome_WebApplication/static/Tables_LDSC/MetaAnalysis_Heritability_Log_12Traits.csv",index=False)
+
+    df_final.to_csv(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri__results"]+f"/{out_file_name}traits.csv",index=False)
 

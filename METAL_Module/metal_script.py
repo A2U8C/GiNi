@@ -45,6 +45,7 @@ sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processi
 
 from gini_main import * ##file_checker
 from LDSC_Module.ldsc_manager import * ##General_Munge
+from CONSTANTS import *
 
 metal_cmd_path="/ifs/loni/faculty/njahansh/nerds/ravi/genetics/random-metal-0.1.0/executables/metal"
 
@@ -57,8 +58,6 @@ def metal_checker(studies_list)->bool:
     
     trait_study_dict={}#Create a dict for all traits, trait_i->[list of traits_paths for all studies ]
 
-    #change it to the "-"; Mention  in the documentation
-    sep_btw_study_trait="___" #Seperator between study_name___trait_name.regenie 
 
 
     #Get list of traits files from 1st study for reference
@@ -213,6 +212,9 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
     import json
     import sys  
     import pandas as pd
+    
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS 
     with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/association_format.json', 'r') as json_file:
         json_association = json.load(json_file)
 
@@ -241,7 +243,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 # Options for general analysis control ...
    EFFECT_PRINT_PRECISION 6
    STDERR_PRINT_PRECISION 6
-   OUTFILE                {abs_meta_path}{out_name} RE_{out_name}.tbl
+   OUTFILE                {abs_meta_path}{out_name} .tbl
    ANALYZE                {meta_type}
 
 """
@@ -249,6 +251,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 
     process_file_i=""
     qced_files=[]
+    combined_studies_name=""
     
     trait_study_loc_paths=trait_study_loc_paths_str.split("abcd123__")
 
@@ -261,7 +264,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 
         compl_split_study_i=study_i.split("/")[-1].split(".")
         study_i_f_name=compl_split_study_i[0] #study_i__trait name
-
+        combined_studies_name+=study_i_f_name.split(CONSTANTS.sep_btw_study_trait)[0]+"_"
 
 
         gwas_format_name=compl_split_study_i[-1] if compl_split_study_i[-1].lower()!="gz" else compl_split_study_i[-2]
@@ -292,7 +295,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 
 
     # f=base_f.format(PROCESSFILE_contents=process_file_i,abs_meta_path=extras_metal_output_files,out_name=trait_i)
-    f=metal_file_content.format(PROCESSFILE_contents=process_file_i,abs_meta_path=extras_metal_output_files,meta_type=meta_type,out_name=trait_name)
+    f=metal_file_content.format(PROCESSFILE_contents=process_file_i,abs_meta_path=extras_metal_output_files,meta_type=meta_type,out_name=combined_studies_name+CONSTANTS.sep_btw_study_trait+trait_name)
     out_file_metal=extras_metal_input_files+"/RE_"+trait_name+".metal"
 
 
@@ -300,7 +303,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
         n_f.write(f)
 
 
-    metal_cmd=f"""{metal_cmd_path} < """+out_file_metal+f""" > {extras_metal_output_files}/RE.metal.{trait_name}.out"""
+    metal_cmd=f"""{metal_cmd_path} < """+out_file_metal+f""" > {extras_metal_output_files}/RE.metal.{combined_studies_name+CONSTANTS.sep_btw_study_trait+trait_name}.out"""
 
     
     subprocess.call(metal_cmd, shell=True)
@@ -310,7 +313,8 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
     for qced_file_i in qced_files:
         os.remove(qced_file_i) # To remove the temporary files created during the METAL input preparation
 
-    new_tbl_file=extras_metal_output_files+trait_name+"1RE_"+trait_name+".tbl"
+    new_tbl_file=extras_metal_output_files+combined_studies_name+CONSTANTS.sep_btw_study_trait+trait_name+"1.tbl"
+    # new_tbl_file=extras_metal_output_files+trait_name+"1RE_"+trait_name+".tbl"
     gzip_tbl_file=f"""gzip -9 {new_tbl_file}"""
     subprocess.call(gzip_tbl_file, shell=True)
     out_zipped_metal=new_tbl_file+".gz"
@@ -425,7 +429,7 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
         
         workflow_metal_mungng.connect(connections) 
         
-        workflow_metal_mungng.write_graph(graph2use='orig', dotfilename='/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/graph_orig.dot')
+        # workflow_metal_mungng.write_graph(graph2use='orig', dotfilename='/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/graph_orig.dot')
        
         workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
 
@@ -444,8 +448,11 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
     return "file_metal_results_path"
 
 
-def metal_Analysis_Module(studies_list,meta_type):
+def metal_Analysis_Module(studies_list,meta_type,hpc_bool=True,machineName="runnow.q"):
     print("META Analysis Module")
-    dict_trait_pathStudy=metal_checker(studies_list)
-    return metal_main_program(dict_trait_pathStudy,hpc_bool=True,meta_type=meta_type,machineName="runnow.q")
+    # dict_trait_pathStudy=metal_checker(studies_list)
+    # return metal_main_program(dict_trait_pathStudy,hpc_bool=True,meta_type=meta_type,machineName="runnow.q")
+
+
+    return metal_main_program(studies_list,hpc_bool=hpc_bool,meta_type=meta_type,machineName=machineName)
     
