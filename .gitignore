@@ -9,6 +9,7 @@ temp_file*
 workflow_debugger.py
 .DS_Store
 LDSC_Module/Enigma_GC_Munged/
+crash*
 
 
 # Distribution / packaging
