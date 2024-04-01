@@ -7,12 +7,13 @@ import nipype
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as niu
 from nipype.interfaces.utility import Function
-
+import shutil
 
 sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
 
 from METAL_Module.metal_script import *
 from CONSTANTS import *
+import CONSTANTS
 
 from LDSC_Module.ldsc_manager import * ##General_Munge
 #python gini_main.py input-module-wrapper --input_txt /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/temp_file.txt --n_studies 2 --ethnicity European --analysis_list Heritability --tissues_cells Astrocytes --meta random
@@ -103,7 +104,7 @@ def Non_Metal_manager(in_txt_file:list):
 
 
     for study_i_inp_file in study_files:
-        heritability_res_files.append(Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/Heritability_"+study_i_inp_file.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".gz")[0]+".sumstats.log")
+        heritability_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/Heritability_"+study_i_inp_file.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".gz")[0]+".sumstats.log")
 
     iterable_new_list=study_files
     
@@ -121,7 +122,7 @@ def Non_Metal_manager(in_txt_file:list):
                     output_names=['LDSC_Munge_out'],
                     function=General_Munge),
             name='node1_LDSC_Munge')
-    node1_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
+    node1_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
     
     
     node2_LDSC_Heritability = pe.Node(Function(input_names=['filePathInp_Munged'],
@@ -129,9 +130,19 @@ def Non_Metal_manager(in_txt_file:list):
                     function=HeritabilityLDSC),
             name='node2_LDSC_Heritability')
     
+    
+    node3_LDSC_rG_manager = pe.Node(Function(input_names=['Munged_file','hpc_bool','machineName'],
+                    output_names=['LDSC_Heritability_out'],
+                    function=rG_Node_Manager),
+            name='node3_LDSC_rG_manager')
+    
+    node3_LDSC_rG_manager.inputs.hpc_bool=True
+    node3_LDSC_rG_manager.inputs.machineName="runnow.q"
 
     connections=[(inputnode, node1_LDSC_Munge, [('filePathInp', 'filePathInp')]),
-                    (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')])] 
+                    (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')]),
+                    # (node1_LDSC_Munge, node3_LDSC_rG_manager, [('LDSC_Munge_out', 'Munged_file')])
+                    ] 
     
     workflow_metal_mungng.connect(connections)    
     workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q runnow.q -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
@@ -143,17 +154,18 @@ def Non_Metal_manager(in_txt_file:list):
 
 
 
-def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName:str="runnow.q"):
+def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName:str="iniadmin7.q"):
     study_files = sum(trait_study_dict.values(), [])
     
         
     heritability_res_files=[]
     
     for study_i_inp_file in study_files:
-        heritability_res_files.append(Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/Heritability_"+study_i_inp_file.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".gz")[0]+".sumstats.log")
+        heritability_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/Heritability_"+study_i_inp_file.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".gz")[0]+".sumstats.log")
 
     if hpc_bool:
-        workflow_metal_mungng = pe.Workflow(name='Non_METAL_Munging_wf2')
+        wf_name='Non_METAL_Munging_wf2'
+        workflow_metal_mungng = pe.Workflow(name=wf_name)
         workflow_metal_mungng.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
         iterable_new_list=study_files
         
@@ -170,7 +182,7 @@ def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName
                         output_names=['LDSC_Munge_out'],
                         function=General_Munge),
                 name='node1_LDSC_Munge')
-        node1_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
+        node1_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
         
         
         node2_LDSC_Heritability = pe.Node(Function(input_names=['filePathInp_Munged'],
@@ -178,21 +190,93 @@ def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName
                         function=HeritabilityLDSC),
                 name='node2_LDSC_Heritability')
         
-
+        
+        node3_LDSC_Cell_h2 = pe.Node(Function(input_names=['files_Munged','CellAnalysisName','LDCTSFile'],
+                        output_names=['LDSC_Cell_H2_out'],
+                        function=CellTypeLDSC),
+                name='node3_LDSC_Cell_h2')
+        node3_LDSC_Cell_h2.inputs.CellAnalysisName="Corces"
+        node3_LDSC_Cell_h2.inputs.LDCTSFile="Corces_ATAC.ldcts"
+        
+        node4_LDSC_rG_manager = pe.Node(Function(input_names=['Munged_file','hpc_bool','machineName'],
+                                                 output_names=['LDSC_trait_out'],
+                                                 function=rG_Node_Manager),
+                                                 name='node4_LDSC_rG_manager')
+        node4_LDSC_rG_manager.inputs.hpc_bool=True
+        node4_LDSC_rG_manager.inputs.machineName=machineName
+    
         connections=[(inputnode, node1_LDSC_Munge, [('filePathInp', 'filePathInp')]),
-                        (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')])] 
+                        # (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')]),
+                        # (node1_LDSC_Munge, node3_LDSC_Cell_h2, [('LDSC_Munge_out', 'files_Munged')]),
+                        (node1_LDSC_Munge, node4_LDSC_rG_manager, [('LDSC_Munge_out', 'Munged_file')])
+                        ] 
         
         workflow_metal_mungng.connect(connections)    
         workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+
+        shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
+
+    
     else:
         for study_file in study_files:
-            HeritabilityLDSC(General_Munge(study_file,dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
+            HeritabilityLDSC(General_Munge(study_file,dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
         ))
     
-    print(f"Heritability results are extracted saved in a CSV file in {Extra_temp_files_dict['extras_LDSC_Heri__results']}")
-    Heritability_Log_Extraction(heritability_res_files)
+    # print(f"Heritability results are extracted saved in a CSV file in {CONSTANTS.Extra_temp_files_dict['extras_LDSC_Heri__results']}")
+    # Heritability_Log_Extraction(heritability_res_files)
     pass
 
+
+def rG_Node_Manager(Munged_file:str,hpc_bool:bool=False,machineName:str="runnow.q"):
+
+    import os
+    import sys
+    import click
+
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    
+    from LDSC_Module import ldsc_manager ##General_Munge
+    import CONSTANTS 
+
+    import nipype
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.utility as niu
+    from nipype.interfaces.utility import Function
+    import shutil
+        
+    iterable_new_list=[Munged_file+","+os.path.join(CONSTANTS.rG_folder, f) for f in os.listdir(CONSTANTS.rG_folder) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder, f)) and f.split(".")[-1].lower()=="gz")]
+
+    # for el in iterable_new_list:
+    #     print(el)
+
+    wf_name='Non_METAL_rG_wf_'+Munged_file.split("/")[-1].split(".")[0]
+    workflow_metal_mungng = pe.Workflow(name=wf_name)
+    workflow_metal_mungng.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
+
+    inputnode = pe.Node(
+            niu.IdentityInterface(
+                fields=['trait_files']
+                ),
+            synchronize=True,
+            iterables=[('trait_files',iterable_new_list)],
+            name='inputnode'
+        )
+        
+    node1_LDSC_rG = pe.Node(Function(input_names=['trait_files'],
+                    output_names=['out_file_comp'],
+                    function=ldsc_manager.rG_LDSC),
+            name='node1_LDSC_rG')
+    
+    connections=[(inputnode, node1_LDSC_rG, [('trait_files', 'trait_files')])
+                 ] 
+        
+    workflow_metal_mungng.connect(connections)    
+    workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+
+    shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
+
+    print("rG Completed")
+    return Munged_file
 
 
 
@@ -287,37 +371,9 @@ def input_check_ver_2(in_txt1,n_studies, ethnicity,analysis_list,tissues_cells,m
         meta_Analysis_op=False
 
     ################################################ Temporary Folders Section ################################################################
-    for tp_fold_i in Extra_temp_files_dict.keys():
-        if not (os.path.exists(Extra_temp_files_dict[tp_fold_i]) and os.path.isdir(Extra_temp_files_dict[tp_fold_i])): # Check if folder exists; to add temporary folder in it
-            os.makedirs(Extra_temp_files_dict[tp_fold_i])
-
-    # extras_folder_path = os.path.join(os.getcwd(), "Exta_temp_files")
-    # if not (os.path.exists(extras_folder_path) and os.path.isdir(extras_folder_path)): # Check if folder exists; to add temporary folder in it
-    #     os.makedirs(extras_folder_path)
-    
-    # extras_metal_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out")
-    # if not (os.path.exists(extras_metal_files) and os.path.isdir(extras_metal_files)): # Check if Metal extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_metal_files)
-
-    # extras_metal_qced_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_QCED_file")
-    # if not (os.path.exists(extras_metal_qced_files) and os.path.isdir(extras_metal_qced_files)): # Check if Metal extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_metal_qced_files)
-        
-    # extras_metal_input_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_input_files")
-    # if not (os.path.exists(extras_metal_input_files) and os.path.isdir(extras_metal_input_files)): # Check if Metal extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_metal_input_files)
-
-    # extras_metal_output_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_output_files")
-    # if not (os.path.exists(extras_metal_output_files) and os.path.isdir(extras_metal_output_files)): # Check if Metal extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_metal_output_files)
-
-    # extras_LDSC_Munge_files = os.path.join(os.getcwd(), "Exta_temp_files/LDSC_Out/Munged_results")
-    # if not (os.path.exists(extras_LDSC_Munge_files) and os.path.isdir(extras_LDSC_Munge_files)): # Check if LDSC extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_LDSC_Munge_files)
-
-    # extras_LDSC_Heri_files = os.path.join(os.getcwd(), "Exta_temp_files/LDSC_Out/Heritability_Results")
-    # if not (os.path.exists(extras_LDSC_Heri_files) and os.path.isdir(extras_LDSC_Heri_files)): # Check if LDSC extras folder exists; to add temporary files in it
-    #     os.makedirs(extras_LDSC_Heri_files)
+    for tp_fold_i in CONSTANTS.Extra_temp_files_dict.keys():
+        if not (os.path.exists(CONSTANTS.Extra_temp_files_dict[tp_fold_i]) and os.path.isdir(CONSTANTS.Extra_temp_files_dict[tp_fold_i])): # Check if folder exists; to add temporary folder in it
+            os.makedirs(CONSTANTS.Extra_temp_files_dict[tp_fold_i])
     ################################################ Temporary Folders Section ################################################################
         
     return meta_Analysis_op, trait_study_dict
@@ -326,6 +382,97 @@ def input_check_ver_2(in_txt1,n_studies, ethnicity,analysis_list,tissues_cells,m
 
 def METAL_NonMETAL_Manager(Analysis_ops:list, trait_study_dict:list):
     pass
+
+
+def pain_manager(machineName="runnow.q"):
+    trait_file_1="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/TEMP_inputs/Pain_traits_txt1.txt"
+    trait_file_2="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/TEMP_inputs/Pain_traits_txt2.txt"
+
+    workflow_metal_mungng = pe.Workflow(name='Pain_Munging_wf2')
+    workflow_metal_mungng.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
+
+    with open(trait_file_1, 'r') as file1:
+        trait_file_1_files = file1.read().splitlines()
+
+    with open(trait_file_2, 'r') as file2:
+        trait_file_2_files = file2.read().splitlines()
+
+    iterable_new_list=trait_file_1_files+trait_file_2_files
+    Munging1_res_files=[]
+    for study_i_inp_file in trait_file_1_files:
+        Munging1_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+file_name_process(study_i_inp_file.split("/")[-1]).split(".")[0]+".sumstats.gz")
+
+    Munging2_res_files=[]
+    for study_i_inp_file in trait_file_2_files:
+        Munging2_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+file_name_process(study_i_inp_file.split("/")[-1]).split(".")[0]+".sumstats.gz")
+
+    all_combinations_for_rG=trait_Combinations_for_rG(Munging1_res_files,Munging2_res_files).to_list()
+
+    print(all_combinations_for_rG)
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=['filePathInp']
+            ),
+        synchronize=True,
+        iterables=[('filePathInp',iterable_new_list)],
+        name='inputnode'
+    )
+    
+    node1_LDSC_Munge = pe.Node(Function(input_names=['filePathInp','kwargs'],
+                    output_names=['LDSC_Munge_out'],
+                    function=General_Munge),
+            name='node1_LDSC_Munge')
+    node1_LDSC_Munge.inputs.kwargs=dict(N_col="N",snp="SNP",frq="freq",OR=False,signed_sumstats="b",out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="A1",a2="A2",p="p")
+    
+    connections=[(inputnode, node1_LDSC_Munge, [('filePathInp', 'filePathInp')])] 
+    
+    workflow_metal_mungng.connect(connections)    
+    workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+
+
+
+
+
+    workflow_metal_rG = pe.Workflow(name='Pain_Munging_rG_wf2')
+    workflow_metal_rG.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
+
+    inputnode1 = pe.Node(
+        niu.IdentityInterface(
+            fields=['filePathInp']
+            ),
+        synchronize=True,
+        iterables=[('filePathInp',all_combinations_for_rG)],
+        name='inputnode1'
+    )
+    
+    node3_LDSC_rG = pe.Node(Function(input_names=['trait_files'],
+                    output_names=['LDSC_rG_out'],
+                    function=rG_LDSC),
+            name='node3_LDSC_rG')
+    
+    connections2=[(inputnode1, node3_LDSC_rG, [('filePathInp', 'trait_files')])] 
+        
+    
+    workflow_metal_rG.connect(connections2)    
+    workflow_metal_rG.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+
+    
+    rg_Extractor_list=[]
+    for trait_file_i in all_combinations_for_rG:
+        trait_file_i=trait_file_i.replace("\n","").replace("\r","")
+        trait_file_1=trait_file_i.split(",")[0] #
+        trait_file_2=trait_file_i.split(",")[1] #
+        
+        rg_Extractor_list.append("/ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_rG_NonDuplicates/"+trait_file_1.split("/")[-1].split(".")[0]+"___"+trait_file_2.split("/")[-1].split(".")[0]+".log")
+
+    rG_Log_Extraction(rg_Extractor_list)
+
+
+    pass
+
+
+
+
 
 
 @gini_gwas.command()
@@ -344,9 +491,9 @@ def input_module_wrapper(input_txt,n_studies, ethnicity,analysis_list,tissues_ce
     meta_Analysis_op, study_files = input_check_ver_2(input_txt,n_studies, ethnicity,analysis_list,tissues_cells,meta)
 
 
-    #check if the system on which the program is running is a HPC: 
-    # os.popen('hostname').read().encode('utf-8')
-    #  psutil.virtual_memory()
+    # #check if the system on which the program is running is a HPC: 
+    # # os.popen('hostname').read().encode('utf-8')
+    # #  psutil.virtual_memory()
     
     print(meta_Analysis_op)
     if meta_Analysis_op:
@@ -354,7 +501,8 @@ def input_module_wrapper(input_txt,n_studies, ethnicity,analysis_list,tissues_ce
     else:
         Non_Metal_manager_ver2(study_files,hpc_bool=True)
 
-
+    # rG_Node_Manager("")
+    # pain_manager()
 
 if __name__ == "__main__":
     gini_gwas()

@@ -328,42 +328,13 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 
 def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineName:str):
 
-
-    extras_folder_path = os.path.join(os.getcwd(), "Exta_temp_files")
-    if not (os.path.exists(extras_folder_path) and os.path.isdir(extras_folder_path)): # Check if folder exists; to add temporary folder in it
-        os.makedirs(extras_folder_path)
-    
-    extras_metal_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out")
-    if not (os.path.exists(extras_metal_files) and os.path.isdir(extras_metal_files)): # Check if Metal extras folder exists; to add temporary files in it
-        os.makedirs(extras_metal_files)
-
-    extras_metal_qced_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_QCED_file")
-    if not (os.path.exists(extras_metal_qced_files) and os.path.isdir(extras_metal_qced_files)): # Check if Metal extras folder exists; to add temporary files in it
-        os.makedirs(extras_metal_qced_files)
-        
-    extras_metal_input_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_input_files")
-    if not (os.path.exists(extras_metal_input_files) and os.path.isdir(extras_metal_input_files)): # Check if Metal extras folder exists; to add temporary files in it
-        os.makedirs(extras_metal_input_files)
-
-    extras_metal_output_files = os.path.join(os.getcwd(), "Exta_temp_files/METAL_Out/METAL_output_files")
-    if not (os.path.exists(extras_metal_output_files) and os.path.isdir(extras_metal_output_files)): # Check if Metal extras folder exists; to add temporary files in it
-        os.makedirs(extras_metal_output_files)
-
-    extras_LDSC_Munge_files = os.path.join(os.getcwd(), "Exta_temp_files/LDSC_Out/Munged_results")
-    if not (os.path.exists(extras_LDSC_Munge_files) and os.path.isdir(extras_LDSC_Munge_files)): # Check if LDSC extras folder exists; to add temporary files in it
-        os.makedirs(extras_LDSC_Munge_files)
-
-    extras_LDSC_Heri_files = os.path.join(os.getcwd(), "Exta_temp_files/LDSC_Out/Heritability_Results")
-    if not (os.path.exists(extras_LDSC_Heri_files) and os.path.isdir(extras_LDSC_Heri_files)): # Check if LDSC extras folder exists; to add temporary files in it
-        os.makedirs(extras_LDSC_Heri_files)
-
     metal_output_file_paths=[]
 
     if hpc_bool:
-        with open(extras_metal_input_files+"/metal_hpc_trait_study_locs.txt", 'w') as n_f:
+        with open(CONSTANTS.Extra_temp_files_dict["extras_metal_input_files"]+"/metal_hpc_trait_study_locs.txt", 'w') as n_f:
             for trait_i_name in trait_studies_input:
                 n_f.write(f'{trait_i_name}:{",".join(trait_studies_input[trait_i_name])}\n')
-                metal_output_file_paths.append(extras_metal_output_files+trait_i_name+"1RE_"+trait_i_name+".tbl.gz")
+                metal_output_file_paths.append(CONSTANTS.Extra_temp_files_dict["extras_metal_output_files"]+trait_i_name+"1RE_"+trait_i_name+".tbl.gz")
             
 
         traits_cnt=len(trait_studies_input.keys())
@@ -411,7 +382,7 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
                       output_names=['LDSC_Munge_out'],
                       function=General_Munge),
              name='node2_LDSC_Munge')
-        node2_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=extras_LDSC_Munge_files+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
+        node2_LDSC_Munge.inputs.kwargs=dict(N_col="TotalN",snp="MarkerName",frq="Freq1",signed_sumstats="EffectARE",out=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/",a1="Allele1",a2="Allele2",p="PvalueARE")
         
         
         node3_LDSC_Heritability = pe.Node(Function(input_names=['filePathInp_Munged'],
@@ -438,9 +409,9 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
             metal_file_gz=metal_improved_execution_function(trait_i,"abcd123__".join(trait_studies_input[trait_i]),meta_type)
             General_Munge(metal_file_gz)
             # metal_output_file_paths.append(extras_metal_output_files+trait_i_name+"1RE_"+trait_i_name+".tbl.gz")
-        os.removedirs(extras_metal_qced_files) # To delete the QCED temporary files
+        os.removedirs(CONSTANTS.Extra_temp_files_dict["extras_metal_qced_files"]) # To delete the QCED temporary files
     
-    file_metal_results_path=extras_metal_input_files+"metal_results_gz_files.txt"
+    file_metal_results_path=CONSTANTS.Extra_temp_files_dict["extras_metal_input_files"]+"metal_results_gz_files.txt"
     # with open(file_metal_results_path, 'w') as met_out_paths:
     #     for line in metal_output_file_paths:
     #         met_out_paths.write(line+"\n")
