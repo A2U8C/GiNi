@@ -215,8 +215,8 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
     
     sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
     import CONSTANTS 
-    with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/association_format.json', 'r') as json_file:
-        json_association = json.load(json_file)
+    # with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/association_format.json', 'r') as json_file:
+    #     json_association = json.load(json_file)
 
     
     metal_cmd_path="/ifs/loni/faculty/njahansh/nerds/ravi/genetics/random-metal-0.1.0/executables/metal"
@@ -253,7 +253,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
     qced_files=[]
     combined_studies_name=""
     
-    trait_study_loc_paths=trait_study_loc_paths_str.split("abcd123__")
+    trait_study_loc_paths=trait_study_loc_paths_str.split(CONSTANTS.file_joiner_str)
 
     print("*-*-*--**-*-*---**-*-*-**-*--*-*-*--*-*-**-*========================================================================")
 
@@ -268,7 +268,7 @@ def metal_improved_execution_function(trait_name:str,trait_study_loc_paths_str:s
 
 
         gwas_format_name=compl_split_study_i[-1] if compl_split_study_i[-1].lower()!="gz" else compl_split_study_i[-2]
-        dict_col_header_mapper=json_association[gwas_format_name]['format_dict']
+        dict_col_header_mapper=CONSTANTS.json_association[gwas_format_name]['format_dict']
 
 
         df_study_i=pd.read_csv(study_i,sep=" ")
@@ -350,7 +350,7 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
         all_trait_studies_input_items=trait_studies_input.items()
 
         all_trait_studies_input_keys=[k for k,v in all_trait_studies_input_items]#[:1] #[trait_1,trait_2.....trait_n][::-1]
-        all_trait_studies_input_values=["abcd123__".join(v) for k,v in all_trait_studies_input_items]#[:1]  #[ukb_trait_1abcd123__abcd_trait_1,ukb_trait_2abcd123__abcd_trait_2.....ukb_trait_nabcd123__abcd_trait_n]
+        all_trait_studies_input_values=[CONSTANTS.file_joiner_str.join(v) for k,v in all_trait_studies_input_items]#[:1]  #[ukb_trait_1abcd123__abcd_trait_1,ukb_trait_2abcd123__abcd_trait_2.....ukb_trait_nabcd123__abcd_trait_n]
         meta_full=[meta_type for i in all_trait_studies_input_values]#[:1] #["RANDOM","RANDOM",....."RANDOM"]
         
 
@@ -406,7 +406,7 @@ def metal_main_program(trait_studies_input,hpc_bool:bool,meta_type:str,machineNa
 
     else:
         for trait_i in trait_studies_input:# HPC benefits (Put a qsub job on each trait)
-            metal_file_gz=metal_improved_execution_function(trait_i,"abcd123__".join(trait_studies_input[trait_i]),meta_type)
+            metal_file_gz=metal_improved_execution_function(trait_i,CONSTANTS.file_joiner_str.join(trait_studies_input[trait_i]),meta_type)
             General_Munge(metal_file_gz)
             # metal_output_file_paths.append(extras_metal_output_files+trait_i_name+"1RE_"+trait_i_name+".tbl.gz")
         os.removedirs(CONSTANTS.Extra_temp_files_dict["extras_metal_qced_files"]) # To delete the QCED temporary files

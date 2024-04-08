@@ -1,134 +1,119 @@
-import pandas as pd
-import numpy as np
-import re
-import os
 
-def Lava_Meta_FilePrep(filename:str):
-    import subprocess
+
+def Lava_FilePrep(filename:str,Gwas_format:str):
     import pandas as pd
-    abs_path="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_data/"
-    df=pd.read_csv(filename,delim_whitespace=True)
+    import numpy as np
+    import re
+    import subprocess
+    import os
+    import sys
 
-
-    # df["A2"]=df["A2"].str.upper()
-    # df["A1"]=df["A1"].str.upper()
-
-    # if "b" not in df.columns and "OR" in df.columns:
-    #     df["b"]=np.log10(df["OR"])
-
-
-    disease_name_map={"GCST90016564_buildGRCh37": "ibs",}
+    Gwas_format=Gwas_format.lower()
     
-    ukb_f_name=filename.split("/")[-1].split("1RE")[0]
-    print(ukb_f_name)
-    ukb_f_name=disease_name_map[ukb_f_name] if ukb_f_name in disease_name_map else ukb_f_name
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS
 
-    df.rename(columns={"SNP":"MarkerName",
-                        "Allele1":"A1" , 
-                        "Allele2":"A2" , 
-                        "TotalN":"N" , 
-                        "EffectARE":"BETA","b":"BETA", 
-                        "PvalueARE":"P","p":"P"
-                        },inplace=True)
-    df[["MarkerName","A1","A2","N","BETA","P"]].to_csv(abs_path+ukb_f_name+".tbl",sep="\t",index=False,header=True)
-    ukbb_gzip_qced_cmd=f"""gzip -9 {abs_path+ukb_f_name}.tbl"""
+    abs_path_data=CONSTANTS.Extra_temp_files_dict["extra_LAVA_filePrep"]
+
+    df=pd.read_csv(filename,delim_whitespace=True)
+    
+    
+    dict_col_header_mapper=CONSTANTS.json_association[Gwas_format]['LAVA_Formatted_key']
+    print(Gwas_format)
+    df.rename(columns=dict_col_header_mapper,inplace=True)
+
+    if Gwas_format=="regenie":    
+        df["P"]= (1/10)**df['LOG10P']
+
+    df["A2"]=df["A2"].str.upper()
+    df["A1"]=df["A1"].str.upper()
+
+    if "BETA" not in df.columns and "OR" in df.columns:
+        df["BETA"]=np.log10(df["OR"])
+
+
+    
+    f_file_name=abs_path_data+"/"+filename.split("/")[-1].split(".")[0]
+    
+    df[["MarkerName","A1","A2","N","BETA","P"]].to_csv(f_file_name+".tbl",sep="\t",index=False,header=True)
+    ukbb_gzip_qced_cmd=f"""gzip -9 {f_file_name}.tbl"""
     subprocess.call(ukbb_gzip_qced_cmd, shell=True)
 
+    LAVA_prep_out=f_file_name+".tbl.gz"
+    return LAVA_prep_out
 
-# Lava_Meta_FilePrep("/ifs/loni/faculty/njahansh/nerds/ravi/genetics/li_anxiety_2023/Anxiety-Disorders-plink.meta.P_Sorted.2021.3.31_Final.txt")
 
-class Lava_input_file:
-    def __init__(self, trait_name, input_list):
+def Lava_input_file(trait_path:str, Enigma_input,lava_control,lava_cases):
+    import pandas as pd
+    import sys
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS 
 
-        trait_loc="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_data/"+trait_name+".tbl.gz"
+    trait_name=trait_path.split("/")[-1].split(".")[0]
+    trait_loc=CONSTANTS.Extra_temp_files_dict["extra_LAVA_filePrep"]+"/"+trait_name+".tbl.gz"
 
-        cases_control={
-            "COPC":{
-                "cases":82812,
-                "controls":81966 
-            },
-            "neuroticism":{
-                "cases":None,
-                "controls":None
-            },
-            "insomnia":{
-                "cases":593724,
-                "controls":1771286 
-            },
-            "adhd":{
-                "cases":38691 ,
-                "controls":186843
-            },
-            "suicide":{
-                "cases":26590,
-                "controls":492022
-            },
-            "intelligence":{
-                "cases":None,
-                "controls":None
-            },
-            "asd":{
-                "cases":18381,
-                "controls":27969
-            },
-            "ibs":{
-                "cases":53400,
-                "controls":433201
-            },
-            "anxiety":{
-                "cases":74973,
-                "controls":400243
-            },
-        }
+    
+    
+    LAVA_input_out_arr=[]#wsa_file+CONSTANTS.file_joiner_str+wTHICK_file
+    for Enigma_wsa_wthick in ["wSA","wTHICK"]:
+        input_list=CONSTANTS.Lava_cortical_subcortical[Enigma_input][Enigma_wsa_wthick]
+        dataframe_data=pd.DataFrame([{"phenotype":trait_name.split(CONSTANTS.sep_btw_study_trait)[1],"cases":lava_cases,"controls":lava_control,"filename":trait_loc}])
         
-        dataframe_data=pd.DataFrame([{"phenotype":trait_name,"cases":cases_control[trait_name]['cases'],"controls":cases_control[trait_name]['controls'],"filename":trait_loc}])
-        
-        
-        for line_i in input_list:
-            line="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_data/"+line_i+".tbl.gz"
+        for line in input_list:
             line=line.rstrip("\n")
             line=line.rstrip("\r")
-            disease_file=line.split("/")[-1].split(".")[0]
-            disease_name=disease_file
-
-            data_i={"phenotype":disease_name,"cases":cases_control[disease_name]['cases'],"controls":cases_control[disease_name]['controls'],"filename":line}
-
+            Enigma_trait=line.split("ENIGMA3_mixed_se_")[1].split("_")[2]
+            data_i={"phenotype":Enigma_trait,"cases":"NA","controls":"NA","filename":line}
             new_row_df = pd.DataFrame([data_i])
-
             dataframe_data = pd.concat([dataframe_data, new_row_df], ignore_index=True)
-
         df=pd.DataFrame(data=dataframe_data)
-        f_name="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_input/"+trait_name+".txt"
+        f_name=CONSTANTS.Extra_temp_files_dict["extra_LAVA_input_files"]+"/"+Enigma_wsa_wthick+"_"+trait_name+".txt"
         df.to_csv(f_name, na_rep="NA",sep="\t",index=False)
-        print(f_name)
+        LAVA_input_out_arr.append(f_name)
 
-      
-# Lava_input_file("COPC",["suicide","neuroticism","adhd","asd","insomnia","intelligence","ibs","anxiety"])
 
-class LAVA_Matrix_Formation:
-    def __init__(self) -> None:
+    LAVA_input_out=CONSTANTS.file_joiner_str.join(LAVA_input_out_arr)
+    print(LAVA_input_out)
+    return LAVA_input_out
 
-        trait_name="COPC"
-        file_out_name="/ifs/loni/faculty/njahansh/nerds/ankush/webApplication_Genome/Git_Genome/GenomeAPI_2/File_Path_text_Files/painCorrelationLogs.txt"
+def LAVA_Matrix_Formation(rG_log_files:str):
+        import re
+        import sys
+        
+        sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+        import CONSTANTS 
+
+
+        print(rG_log_files)
+        print(type(rG_log_files))
+        rG_log_files_list=rG_log_files.split(CONSTANTS.file_joiner_str)
         
 
-        matrix=[[0]*9 for _ in range(9)]
-        matrix_id={}#trait_parcellation->index
-        trait_parcellation_array=[]
-        i=0
-        
-        with open(file_out_name) as f:
-            for line in f:
+        trait_name=CONSTANTS.file_name_process(rG_log_files_list[0]).split(CONSTANTS.sep_btw_study_trait)[1][1:]
+
+        print(trait_name)
+        LAVA_matrix_file_out_arr=[]
+        for Enigma_wsa_wthick in ["wSA","wTHICK"]:
+
+            matrix=[[0]*(len(rG_log_files_list)+1) for _ in range(len(rG_log_files_list)+1)]
+            matrix_id={}#trait_parcellation->index
+            trait_parcellation_array=[]
+            i=0
+            
+            
+            for line in rG_log_files_list:
                 line=line.strip("\n")
                 line=line.strip("\r")
-                #Total_Area_pgc-panic2019.log
-                if line.split("/")[-1].split(".log")[0].split("_")[-1]=="noGC":
-                    continue
                 
-                disease_parcellation=line.split("___")[-1].split("_")[0].lower()
 
-                trait_parcellation=[trait_name,disease_parcellation]
+                Enigma_parcellation_arr=line.split("ENIGMA3_mixed_se_")[1].split("_")
+                Enigma_parcellation=Enigma_parcellation_arr[2]
 
+                if Enigma_parcellation_arr[0]!=Enigma_wsa_wthick:
+                     continue
+                trait_parcellation=[trait_name,Enigma_parcellation]
+
+                print(trait_parcellation,i)
 
 
 
@@ -182,36 +167,45 @@ class LAVA_Matrix_Formation:
                 matrix[matrix_id[trait_parcellation[0]]][matrix_id[trait_parcellation[0]]]=hypothesis_1_intercept
                 matrix[matrix_id[trait_parcellation[1]]][matrix_id[trait_parcellation[1]]]=hypothesis_2_intercept
 
-        swapped_matrix_id = {value: key for key, value in matrix_id.items()} #index -> trait_parcellation
-        csv_file = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_Matrix/matrix_LAVA_Input_"+trait_name+".txt"
 
-        arr_index_list=[el_i for el_i in range(len(matrix_id.keys()))]
-        all_parcellation_names=[swapped_matrix_id[el_i] for el_i in arr_index_list]
 
-        print(matrix)
+            swapped_matrix_id = {value: key for key, value in matrix_id.items()} #index -> trait_parcellation
+            csv_file = CONSTANTS.Extra_temp_files_dict["extra_LAVA_Matrix_files"]+"/"+Enigma_wsa_wthick+"_matrix_LAVA_Input_"+trait_name+".txt"
+            LAVA_matrix_file_out_arr.append(csv_file)
 
-        with open(csv_file, 'w') as file:
-            # Write column indices in the first row
-            file.write("" + " ".join(all_parcellation_names) + "\n")
-            
-            # Write rows with row index and data
-            for i, key2 in enumerate(all_parcellation_names):
-                file.write(key2 + " " + " ".join(map(str, matrix[i])) + "\n")
+            arr_index_list=[el_i for el_i in range(len(matrix_id.keys()))]
+            print("Matrix for loop done",arr_index_list)
+            all_parcellation_names=[swapped_matrix_id[el_i] for el_i in arr_index_list]
+
+            with open(csv_file, 'w') as file:
+                # Write column indices in the first row
+                file.write("" + " ".join(all_parcellation_names) + "\n")
+                
+                # Write rows with row index and data
+                for i, key2 in enumerate(all_parcellation_names):
+                    file.write(key2 + " " + " ".join(map(str, matrix[i])) + "\n")
 
         print("Table saved to 'table.txt'")
+        LAVA_matrix_file_out=CONSTANTS.file_joiner_str.join(LAVA_matrix_file_out_arr)
+        return LAVA_matrix_file_out
         
 
+def LAVA_shell_call_script(lava_matrix:str,lava_case_control:str) -> None:
+    import os
+    import sys
+        
+    sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
+    import CONSTANTS
+    abs_LAVA=CONSTANTS.Extra_temp_files_dict["extra_LAVA_Shell_files"]+"/"
 
+    lava_matrices=lava_matrix.split(CONSTANTS.file_joiner_str) ##for wSA and wTHICK
+    lava_case_control_files=lava_case_control.split(CONSTANTS.file_joiner_str) ##for wSA and wTHICK
+    
 
+    trait_name=lava_case_control_files[0].split(CONSTANTS.sep_btw_study_trait)[1].split(".")[0].lstrip("_")
+    
 
-
-class LAVA_shell_call_script:
-    def __init__(self) -> None:
-        ## Neuro
-        # file_12_traits="/ifs/loni/faculty/njahansh/nerds/ankush/webApplication_Genome/Git_Genome/GenomeAPI_2/File_Path_text_Files/12_trait_files_output.txt"
-        abs_LAVA="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_shell/"
-        # lava_job_name=
-        shell_content='''#!/bin/bash
+    shell_content='''#!/bin/bash
 #$ -cwd
 #$ -o /ifs/loni/faculty/njahansh/GAMBIT/genome_WebApplication/static/LAVA/logs/ -j y
 #$ -N {LAVA}
@@ -224,16 +218,22 @@ export PATH="/ifs/loni/faculty/njahansh/nerds/shruti/software/python/anaconda3/e
 LOCI=($(seq 1 1 18380))
 locus=${{LOCI[${{SGE_TASK_ID}}-1]}}
 
-cd /ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_Lava/
+cd /ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_LAVA_NonDuplicates/Pain_Lava_Results/
 
-Rscript /ifs/loni/faculty/njahansh/GAMBIT/genome_WebApplication/static/LAVA/LAVA.R "/ifs/loni/faculty/njahansh/nerds/ravi/genetics/lava-mdd-endo-2023/data/g1000_eur" "/ifs/loni/faculty/njahansh/nerds/ravi/genetics/lava-mdd-endo-2023/data/analysis_files/gencode.v26.GRCh38.protein_coding.1Mb-cis.SNP-IDs.dbsnp-g1000-subset.loci" "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_input/{trait_name}.txt" "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LAVA_Out/LAVA_Matrix/matrix_LAVA_Input_{trait_name}.txt" "{trait_name} suicide neuroticism adhd asd insomnia intelligence ibs anxiety" "LAVA_{trait_name}" ${{locus}} "{trait_name}"
 
+Rscript /ifs/loni/faculty/njahansh/GAMBIT/genome_WebApplication/static/LAVA/LAVA.R "/ifs/loni/faculty/njahansh/nerds/ravi/genetics/lava-mdd-endo-2023/data/g1000_eur" "/ifs/loni/faculty/njahansh/nerds/ravi/genetics/lava-mdd-endo-2023/data/analysis_files/gencode.v26.GRCh38.protein_coding.1Mb-cis.SNP-IDs.dbsnp-g1000-subset.loci" "{lava_case_control}" "{lava_matrix}" "{trait_name} bankssts caudalanteriorcingulate caudalmiddlefrontal cuneus entorhinal frontalpole fusiform inferiorparietal inferiortemporal insula isthmuscingulate lateraloccipital lateralorbitofrontal lingual medialorbitofrontal middletemporal paracentral parahippocampal parsopercularis parsorbitalis parstriangularis pericalcarine postcentral posteriorcingulate precentral precuneus rostralanteriorcingulate rostralmiddlefrontal superiorfrontal superiorparietal superiortemporal supramarginal temporalpole transversetemporal" "LAVA_{trait_name}_{wSA_wTHICK}" ${{locus}} "{trait_name}"
 '''
-        
-        line="COPC"
-        formatted_content = shell_content.format(trait_name=line,LAVA=line)
-        # Specify the file name for the shell script
-        shell_script_file = abs_LAVA+line+"_LAVA_script.sh"
+    
+    
+    for lava_mat_i, case_control_i in zip(lava_matrices,lava_case_control_files):
+        wSA_wTHICK=case_control_i.split("/")[-1].split("_")[0]
+        formatted_content = shell_content.format(trait_name=trait_name,
+                                                lava_case_control=case_control_i,
+                                                lava_matrix=lava_mat_i,
+                                                wSA_wTHICK=wSA_wTHICK,
+                                                LAVA=trait_name)
+    # Specify the file name for the shell script
+        shell_script_file = abs_LAVA+wSA_wTHICK+"_"+trait_name+"_LAVA_script.sh"
 
         # Write the formatted content to the shell script file
         with open(shell_script_file, "w") as file:
@@ -241,19 +241,3 @@ Rscript /ifs/loni/faculty/njahansh/GAMBIT/genome_WebApplication/static/LAVA/LAVA
         os.chmod(shell_script_file, 0o777)
 
 
-        # with open(file_12_traits) as f:
-            # for line in f:
-            #     line=line.strip("\n")
-            #     line=line.strip("\r")
-            #     formatted_content = shell_content.format(trait_name=line,LAVA=line)
-            #     # Specify the file name for the shell script
-            #     shell_script_file = abs_LAVA+line+"_LAVA_script.sh"
-
-            #     # Write the formatted content to the shell script file
-            #     with open(shell_script_file, "w") as file:
-            #         file.write(formatted_content)
-            #     os.chmod(shell_script_file, 0o777)
-
-
-LAVA_shell_call_script()
-# LAVA_Matrix_Formation()

@@ -249,9 +249,10 @@ def rG_LDSC(trait_files:str):
     trait_file_2=trait_files.split(",")[1] #
     
 
-    fileOutName=trait_file_1.split("/")[-1].split(".")[0]+"___"+trait_file_2.split("/")[-1].split(".")[0]
+    fileOutName=CONSTANTS.file_name_process(trait_file_1)+"___"+CONSTANTS.file_name_process(trait_file_2)
         
     out_file_comp=CONSTANTS.Extra_temp_files_dict["extras_LDSC_rG_results"]+"/"+ fileOutName
+    # out_file_comp="/ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_rG_NonDuplicates/"+ fileOutName
 
     cmd_line_n="/ifs/loni/faculty/njahansh/nerds/ankush/software/Anaconda/envs/ldscENV_3_14_2024/bin/python \
         /ifs/loni/faculty/njahansh/nerds/ankush/webApplication_Genome/Git_Genome/GenomeAPI_2/ldsc/ldsc.py  \
@@ -260,24 +261,28 @@ def rG_LDSC(trait_files:str):
         --ref-ld-chr /ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/eur_w_ld_chr/ \
         --w-ld-chr /ifs/loni/faculty/njahansh/nerds/ravi/genetics/ldsc/eur_w_ld_chr/ "
 
-    print(cmd_line_n)
     subprocess.call(cmd_line_n, shell=True)
+    LDSC_trait_out=out_file_comp+".log"
+    return LDSC_trait_out
 
-    return out_file_comp
 
-
-def rG_Log_Extraction(filePath:list):
+def rG_Log_Extraction(filePath:list,file_name_out:str="Global_rG_"):
     
     import pandas as pd
     import sys
+    import os
+    import time
     sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
     import CONSTANTS
     
     df_final=pd.DataFrame(columns = ['p1', 'p2', 'rg','se', 'z','p'])
-    
+    file_name_out+=str(time.time())
 
     for f_name in filePath:
         f_name=f_name.strip("\n").strip("\r")
+        if not (f_name and os.path.exists(f_name)):
+            continue
+
         with open(f_name) as w:
             f_list=[]
             dict_temp={}
@@ -308,6 +313,6 @@ def rG_Log_Extraction(filePath:list):
 
                 df_final = pd.concat([df_final, new_row_df], ignore_index=True)
 
-    # df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv(CONSTANTS.Extra_temp_files_dict["rG_CSV_files"]+"/Global_rG_"+file_name_out+".csv",index=False)
-    df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv("/ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_rG/Global_rG_COPC.csv",index=False)
+    df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv(CONSTANTS.Extra_temp_files_dict["rG_CSV_files"]+"/"+file_name_out+".csv",index=False)
+    # df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv("/ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_rG/Global_rG_COPC.csv",index=False)
 

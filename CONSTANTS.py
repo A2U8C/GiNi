@@ -1,11 +1,12 @@
 import os
 import sys
+import json
+'''
+Update the paths for the downloaded (sQTLS, eQTLS, ENIGMA GWAS):    66GB
+OPTIONS:
+    Dropbox (Ask to download and store at specific location)
 
-import nipype
-import nipype.pipeline.engine as pe
-import nipype.interfaces.utility as niu
-from nipype.interfaces.utility import Function
-
+'''
 
 sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
 from METAL_Module.metal_script import *
@@ -31,30 +32,177 @@ extras_LDSC_Heri_files = os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Ou
 extras_LDSC_Heri__results = os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Out/Heritability_CSV_files"),# to add Heritability tables from logs
 extras_LDSC_rG_results    =   os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Out/rG_Results"),
 rG_CSV_files    =   os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Out/rG_CSV_files"),
-extra_cell_h2=os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Out/Cell_Type_Heritability_Out")
+extra_cell_h2=os.path.join(root_dir_to_Gini, "Exta_temp_files/LDSC_Out/Cell_Type_Heritability_Out"),
+extra_LAVA_filePrep=os.path.join(root_dir_to_Gini, "Exta_temp_files/LAVA_Out/LAVA_data"),
+extra_LAVA_input_files=os.path.join(root_dir_to_Gini, "Exta_temp_files/LAVA_Out/LAVA_input"),
+extra_LAVA_Matrix_files=os.path.join(root_dir_to_Gini, "Exta_temp_files/LAVA_Out/LAVA_Matrix"),
+extra_LAVA_Shell_files=os.path.join(root_dir_to_Gini, "Exta_temp_files/LAVA_Out/LAVA_shell",
+extra_LAVA_output=os.path.join(root_dir_to_Gini, "Exta_temp_files/LAVA_Out/LAVA_Results")
                                       )
 
-rG_folder="/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/INPUT_TESTING_PACKAGE/Enigma_SE_GC/"
+rG_folder={"wSA":os.path.join(root_dir_to_Gini, "LDSC_Module/Enigma_GC_Munged/wSA/"),
+           "wTHICK":os.path.join(root_dir_to_Gini, "LDSC_Module/Enigma_GC_Munged/wTHICK/")}
+
+# Lava_cortical_subcortical={"cortical":[
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_bankssts_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_caudalanteriorcingulate_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_caudalmiddlefrontal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_cuneus_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_entorhinal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_frontalpole_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_fusiform_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_inferiorparietal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_inferiortemporal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_insula_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_isthmuscingulate_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lateraloccipital_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lateralorbitofrontal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lingual_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_medialorbitofrontal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_middletemporal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_paracentral_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parahippocampal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parsopercularis_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parsorbitalis_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parstriangularis_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_pericalcarine_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_postcentral_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_posteriorcingulate_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_precentral_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_precuneus_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_rostralanteriorcingulate_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_rostralmiddlefrontal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiorfrontal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiorparietal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiortemporal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_supramarginal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_temporalpole_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_transversetemporal_surfavg_20190429.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_bankssts_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_caudalanteriorcingulate_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_caudalmiddlefrontal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_cuneus_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_entorhinal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_frontalpole_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_fusiform_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_inferiorparietal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_inferiortemporal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_insula_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_isthmuscingulate_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lateraloccipital_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lateralorbitofrontal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lingual_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_medialorbitofrontal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_middletemporal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_paracentral_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parahippocampal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parsopercularis_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parsorbitalis_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parstriangularis_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_pericalcarine_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_postcentral_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_posteriorcingulate_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_precentral_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_precuneus_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_rostralanteriorcingulate_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_rostralmiddlefrontal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiorfrontal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiorparietal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiortemporal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_supramarginal_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_temporalpole_thickavg_20200522.txt.gz"),
+#                         os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_transversetemporal_thickavg_20200522.txt.gz")
+#                         ],
+#                            "subcortical":"/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/INPUT_TESTING_PACKAGE/Enigma_SE_GC/"}
+
+
+
+
+
+
+Lava_cortical_subcortical={"cortical":{
+                            "wSA":[
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_bankssts_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_caudalanteriorcingulate_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_caudalmiddlefrontal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_cuneus_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_entorhinal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_frontalpole_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_fusiform_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_inferiorparietal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_inferiortemporal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_insula_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_isthmuscingulate_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lateraloccipital_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lateralorbitofrontal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_lingual_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_medialorbitofrontal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_middletemporal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_paracentral_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parahippocampal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parsopercularis_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parsorbitalis_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_parstriangularis_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_pericalcarine_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_postcentral_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_posteriorcingulate_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_precentral_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_precuneus_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_rostralanteriorcingulate_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_rostralmiddlefrontal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiorfrontal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiorparietal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_superiortemporal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_supramarginal_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_temporalpole_surfavg_20190429.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wSA_Mean_transversetemporal_surfavg_20190429.txt.gz")
+                            ], 
+                            "wTHICK":[
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_bankssts_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_caudalanteriorcingulate_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_caudalmiddlefrontal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_cuneus_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_entorhinal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_frontalpole_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_fusiform_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_inferiorparietal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_inferiortemporal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_insula_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_isthmuscingulate_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lateraloccipital_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lateralorbitofrontal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_lingual_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_medialorbitofrontal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_middletemporal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_paracentral_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parahippocampal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parsopercularis_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parsorbitalis_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_parstriangularis_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_pericalcarine_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_postcentral_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_posteriorcingulate_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_precentral_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_precuneus_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_rostralanteriorcingulate_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_rostralmiddlefrontal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiorfrontal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiorparietal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_superiortemporal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_supramarginal_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_temporalpole_thickavg_20200522.txt.gz"),
+                                os.path.join(root_dir_to_Gini, "LAVA_Module/Enigma/ENIGMA3_mixed_se_wTHICK_Mean_transversetemporal_thickavg_20200522.txt.gz")
+                        ]},
+                           "subcortical":"/ifs/loni/faculty/njahansh/nerds/ravi/genetics/enigma_subcortical_gwas"}
+
+
 def file_name_process(fileName:str):
-    return fileName.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","")
+    return fileName.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".")[0]
 
-# node_METAL_Results = pe.Node(Function(input_names=['trait_name', 'trait_study_loc_paths_str', 'meta_type'],
-#                       output_names=['out_zipped_metal'],
-#                       function=metal_improved_execution_function),
-#              name='node_METAL_Results')
+# with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/association_format.json', 'r') as json_file:
+#     json_association = json.load(json_file)
 
-# node_LDSC_Munge = pe.Node(Function(input_names=['filePathInp','kwargs'],
-#                     output_names=['LDSC_Munge_out'],
-#                     function=General_Munge),
-#             name='node_LDSC_Munge')
+with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/LAVA_formatted_Association.json', 'r') as json_file:
+    json_association = json.load(json_file)
 
-
-# node_LDSC_Heritability = pe.Node(Function(input_names=['filePathInp_Munged'],
-#                     output_names=['LDSC_Heritability_out'],
-#                     function=HeritabilityLDSC),
-#             name='node_LDSC_Heritability')
-
-# Nipype_Nodes_dict=dict(node_METAL_Results=node_METAL_Results,
-#                        node_LDSC_Munge=node_LDSC_Munge,
-#                        node_LDSC_Heritability=node_LDSC_Heritability
-#                        )
+file_joiner_str="abcdFileX123__"

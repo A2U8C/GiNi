@@ -7,6 +7,7 @@ import nipype
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as niu
 from nipype.interfaces.utility import Function
+from nipype import config
 import shutil
 
 sys.path.append('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/')
@@ -16,6 +17,7 @@ from CONSTANTS import *
 import CONSTANTS
 
 from LDSC_Module.ldsc_manager import * ##General_Munge
+from LAVA_Module.LAVA_script import * ##Lava_FilePrep Lava_input_file
 #python gini_main.py input-module-wrapper --input_txt /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/temp_file.txt --n_studies 2 --ethnicity European --analysis_list Heritability --tissues_cells Astrocytes --meta random
 
 #python gini_main.py input-module-wrapper --input_txt /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/temp_file_nonMetal.txt --n_studies 1 --ethnicity European --analysis_list Heritability --tissues_cells Astrocytes --meta random
@@ -154,27 +156,52 @@ def Non_Metal_manager(in_txt_file:list):
 
 
 
-def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName:str="iniadmin7.q"):
+def Non_Metal_manager_ver2(trait_study_dict:dict,gwas_format:str,lava_control_cases,hpc_bool:bool=False,machineName:str="iniadmin7.q"):
     study_files = sum(trait_study_dict.values(), [])
     
         
     heritability_res_files=[]
+
+    all_ENIGMA__munged_cortical=[os.path.join(CONSTANTS.rG_folder["wSA"], f) for f in os.listdir(CONSTANTS.rG_folder["wSA"]) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder["wSA"], f)) and f.split(".")[-1].lower()=="gz")]+[os.path.join(CONSTANTS.rG_folder["wTHICK"], f) for f in os.listdir(CONSTANTS.rG_folder["wTHICK"]) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder["wTHICK"], f)) and f.split(".")[-1].lower()=="gz")]
+
+    global_rG_res_files=[CONSTANTS.Extra_temp_files_dict["extras_LDSC_rG_results"]+"/"+ trait_files.split(",")[0].split("/")[-1].split(".")[0]+"___"+trait_files.split(",")[1].split("/")[-1].split(".")[0]+".log" for trait_files in CONSTANTS.trait_Combinations_for_rG(study_files,all_ENIGMA__munged_cortical)]
+
+
     
+
+
+
+
+
     for study_i_inp_file in study_files:
         heritability_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri_files"]+"/Heritability_"+study_i_inp_file.replace(".tbl","").replace(".csv","").replace(".txt","").replace(".gz","").replace(".tsv","").replace(".vcf","").split("/")[-1].split(".gz")[0]+".sumstats.log")
+        
+
+
+    '''
+    Change the way the relative path is being set using the config file
+    '''
 
     if hpc_bool:
-        wf_name='Non_METAL_Munging_wf2'
+        config_dict={'execution': {'job_finished_timeout': '60'}}
+        config.update_config(config_dict)
+
+
+        wf_name='Non_METAL_Munging_wf3'
         workflow_metal_mungng = pe.Workflow(name=wf_name)
         workflow_metal_mungng.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
-        iterable_new_list=study_files
+
+
+        if lava_control_cases==None or gwas_format=='metal':
+            iterable_new_list=[[el,"NA","NA"] for el in study_files] #trait,cases,control
         
         inputnode = pe.Node(
             niu.IdentityInterface(
-                fields=['filePathInp']
+                fields=['filePathInp','Controls_N','Cases_N']
                 ),
             synchronize=True,
-            iterables=[('filePathInp',iterable_new_list)],
+            iterables=[('filePathInp','Controls_N','Cases_N'),iterable_new_list],
+            # iterables=[('filePathInp',iterable_new_list)],
             name='inputnode'
         )
         
@@ -204,17 +231,87 @@ def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName
                                                  name='node4_LDSC_rG_manager')
         node4_LDSC_rG_manager.inputs.hpc_bool=True
         node4_LDSC_rG_manager.inputs.machineName=machineName
-    
-        connections=[(inputnode, node1_LDSC_Munge, [('filePathInp', 'filePathInp')]),
-                        # (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')]),
-                        # (node1_LDSC_Munge, node3_LDSC_Cell_h2, [('LDSC_Munge_out', 'files_Munged')]),
-                        (node1_LDSC_Munge, node4_LDSC_rG_manager, [('LDSC_Munge_out', 'Munged_file')])
-                        ] 
+
+
         
+        node_LAVA_FilePrep = pe.Node(Function(input_names=['filename','Gwas_format'],
+                                                 output_names=['LAVA_prep_out'],
+                                                 function=Lava_FilePrep),
+                                                 name='node_LAVA_FilePrep')
+        node_LAVA_FilePrep.inputs.Gwas_format=gwas_format
+
+        
+
+        
+        node_LAVA_input_file = pe.Node(Function(input_names=['trait_path', 'Enigma_input','lava_control','lava_cases'],
+                                                 output_names=['LAVA_input_out'],
+                                                 function=Lava_input_file),
+                                                 name='node_LAVA_input_file')
+        node_LAVA_input_file.inputs.Enigma_input='cortical'
+
+
+        node_LAVA_Matrix_formation = pe.Node(Function(input_names=['rG_log_files'],
+                                                 output_names=['LAVA_matrix_file_out'],
+                                                 function=LAVA_Matrix_Formation),
+                                                 name='node_LAVA_Matrix_formation')
+        
+
+        
+        node_LAVA_Shell_Creation = pe.Node(Function(input_names=['lava_matrix','lava_case_control'],
+                                                 output_names=['LAVA_shell_file_out'],
+                                                 function=LAVA_shell_call_script),
+                                                 name='node_LAVA_Shell_Creation')
+        
+
+        
+##################################################################################################
+        # # iterable_new_list_rG_Fixer=["/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/Munged_results/ukbb_white_abcd_white____Witelson5_Genu_Area1.sumstats.gz"]
+
+        # # iterable_new_list_rG_Fixer=["/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_transversetemporal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_lingual_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_postcentral_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_superiorparietal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_parsorbitalis_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_superiorfrontal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_precentral_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_caudalmiddlefrontal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_middletemporal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_parsopercularis_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_parahippocampal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_cuneus_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_parstriangularis_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_inferiortemporal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_superiortemporal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_lateralorbitofrontal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_isthmuscingulate_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_lateraloccipital_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_insula_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_paracentral_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_supramarginal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_rostralanteriorcingulate_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_temporalpole_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_caudalanteriorcingulate_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_posteriorcingulate_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_inferiorparietal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_frontalpole_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_medialorbitofrontal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_rostralmiddlefrontal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_entorhinal_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_precuneus_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_fusiform_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_bankssts_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wSA_Mean_pericalcarine_surfavg_20190429.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_rostralmiddlefrontal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_inferiorparietal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_cuneus_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_caudalanteriorcingulate_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_bankssts_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_rostralanteriorcingulate_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_entorhinal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_caudalmiddlefrontal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_parahippocampal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_precuneus_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_supramarginal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_lateralorbitofrontal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_frontalpole_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_posteriorcingulate_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_lingual_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_transversetemporal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_middletemporal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_superiorparietal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_isthmuscingulate_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_paracentral_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_fusiform_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_insula_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_precentral_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_medialorbitofrontal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_parsorbitalis_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_superiortemporal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_superiorfrontal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_temporalpole_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_parstriangularis_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_parsopercularis_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_inferiortemporal_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_postcentral_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_lateraloccipital_thickavg_20200522.logabcdFileX123__/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/LDSC_Out/rG_Results/ukbb_white_abcd_white____Witelson5_Genu_Area1___ENIGMA3_mixed_se_wTHICK_Mean_pericalcarine_thickavg_20200522.log"]
+
+
+
+        # inputnode_rG_Fixer=pe.Node(
+        #     niu.IdentityInterface(
+        #         fields=['filePathInp']
+        #         ),
+        #     synchronize=True,
+        #     iterables=[('filePathInp',iterable_new_list_rG_Fixer)],
+        #     # iterables=[('filePathInp',iterable_new_list)],
+        #     name='inputnode'
+        # )
+
+        # connections=[
+        #             # (inputnode_rG_Fixer, node4_LDSC_rG_manager, [('filePathInp', 'Munged_file')]),
+        #             # (node4_LDSC_rG_manager, node_LAVA_Matrix_formation, [('LDSC_trait_out', 'rG_log_files')]),
+                    
+        #             (inputnode_rG_Fixer, node_LAVA_Matrix_formation, [('filePathInp', 'rG_log_files')])
+        #                 ] 
+        
+##################################################################################################
+        connections=[
+                    (inputnode, node_LAVA_input_file, [('filePathInp', 'trait_path')]),
+                    (inputnode, node_LAVA_input_file, [('Controls_N', 'lava_control')]),
+                    (inputnode, node_LAVA_input_file, [('Cases_N', 'lava_cases')]),
+                    (inputnode, node1_LDSC_Munge, [('filePathInp', 'filePathInp')]),
+                    (inputnode, node_LAVA_FilePrep, [('filePathInp', 'filename')]),
+                    (node1_LDSC_Munge, node4_LDSC_rG_manager, [('LDSC_Munge_out', 'Munged_file')]),
+                    (node4_LDSC_rG_manager, node_LAVA_Matrix_formation, [('LDSC_trait_out', 'rG_log_files')]),
+                    (node_LAVA_input_file, node_LAVA_Shell_Creation, [('LAVA_input_out', 'lava_case_control')]),
+                    (node_LAVA_Matrix_formation, node_LAVA_Shell_Creation, [('LAVA_matrix_file_out', 'lava_matrix')])
+                        ] 
+
         workflow_metal_mungng.connect(connections)    
         workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+        # workflow_metal_mungng.run('SGE',plugin_args=dict(qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
 
-        shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
+        # workflow_metal_mungng.run()
+
+        # shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
+        #  (node4_LDSC_rG_manager, node_LAVA_Matrix_formation, [('LDSC_trait_out', 'rG_log_files')])
+        #  (node1_LDSC_Munge, node2_LDSC_Heritability, [('LDSC_Munge_out', 'filePathInp_Munged')]),
+        # (node1_LDSC_Munge, node3_LDSC_Cell_h2, [('LDSC_Munge_out', 'files_Munged')]),
+        
 
     
     else:
@@ -224,7 +321,9 @@ def Non_Metal_manager_ver2(trait_study_dict:dict,hpc_bool:bool=False,machineName
     
     # print(f"Heritability results are extracted saved in a CSV file in {CONSTANTS.Extra_temp_files_dict['extras_LDSC_Heri__results']}")
     # Heritability_Log_Extraction(heritability_res_files)
-    pass
+    rG_Log_Extraction(global_rG_res_files)
+    # for el in global_rG_res_files:
+    #     print(el)
 
 
 def rG_Node_Manager(Munged_file:str,hpc_bool:bool=False,machineName:str="runnow.q"):
@@ -244,14 +343,15 @@ def rG_Node_Manager(Munged_file:str,hpc_bool:bool=False,machineName:str="runnow.
     from nipype.interfaces.utility import Function
     import shutil
         
-    iterable_new_list=[Munged_file+","+os.path.join(CONSTANTS.rG_folder, f) for f in os.listdir(CONSTANTS.rG_folder) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder, f)) and f.split(".")[-1].lower()=="gz")]
 
-    # for el in iterable_new_list:
-    #     print(el)
+    # All combinations with the Enigma GWAS
+    iterable_new_list=[Munged_file+","+os.path.join(CONSTANTS.rG_folder["wSA"], f) for f in os.listdir(CONSTANTS.rG_folder["wSA"]) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder["wSA"], f)) and f.split(".")[-1].lower()=="gz")]+[Munged_file+","+os.path.join(CONSTANTS.rG_folder["wTHICK"], f) for f in os.listdir(CONSTANTS.rG_folder["wTHICK"]) if (os.path.isfile(os.path.join(CONSTANTS.rG_folder["wTHICK"], f)) and f.split(".")[-1].lower()=="gz")]
+
 
     wf_name='Non_METAL_rG_wf_'+Munged_file.split("/")[-1].split(".")[0]
     workflow_metal_mungng = pe.Workflow(name=wf_name)
     workflow_metal_mungng.base_dir = "/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/"
+    workflow_metal_mungng.config["job_finished_timeout"]=30
 
     inputnode = pe.Node(
             niu.IdentityInterface(
@@ -267,16 +367,20 @@ def rG_Node_Manager(Munged_file:str,hpc_bool:bool=False,machineName:str="runnow.
                     function=ldsc_manager.rG_LDSC),
             name='node1_LDSC_rG')
     
+    
     connections=[(inputnode, node1_LDSC_rG, [('trait_files', 'trait_files')])
                  ] 
         
+
     workflow_metal_mungng.connect(connections)    
-    workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
+    res=workflow_metal_mungng.run('SGE',plugin_args=dict(dont_resubmit_completed_jobs= True, overwrite= True, qsub_args=f'-q {machineName} -o /ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/Exta_temp_files/Logs/ -j y'))
 
-    shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
 
-    print("rG Completed")
-    return Munged_file
+    print(res.nodes())
+    outputs = CONSTANTS.file_joiner_str.join([x.result.outputs.out_file_comp for x in res.nodes() if x.name == 'node1_LDSC_rG'])
+    print(outputs)
+    # shutil.rmtree(workflow_metal_mungng.base_dir+wf_name+"/") # To remove the NiPype LOGS
+    return outputs
 
 
 
@@ -400,13 +504,15 @@ def pain_manager(machineName="runnow.q"):
     iterable_new_list=trait_file_1_files+trait_file_2_files
     Munging1_res_files=[]
     for study_i_inp_file in trait_file_1_files:
-        Munging1_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+file_name_process(study_i_inp_file.split("/")[-1]).split(".")[0]+".sumstats.gz")
+        Munging1_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+CONSTANTS.file_name_process(study_i_inp_file.split("/")[-1])+".sumstats.gz")
 
     Munging2_res_files=[]
     for study_i_inp_file in trait_file_2_files:
-        Munging2_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+file_name_process(study_i_inp_file.split("/")[-1]).split(".")[0]+".sumstats.gz")
+        Munging2_res_files.append(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Munge_files"]+"/"+CONSTANTS.file_name_process(study_i_inp_file.split("/")[-1])+".sumstats.gz")
 
     all_combinations_for_rG=trait_Combinations_for_rG(Munging1_res_files,Munging2_res_files).to_list()
+
+    print(all_combinations_for_rG)
 
     print(all_combinations_for_rG)
     inputnode = pe.Node(
@@ -482,7 +588,9 @@ def pain_manager(machineName="runnow.q"):
 @click.option('--analysis_list', metavar='| Selection of Analyses and tests', help="""Specify one or more of the analyses which you want to be executed. Following are the available options: 'Global_Correlation' or 'Local_Correlation' or 'Heritability' or 'GSMR' or 'TWAS' or 'ALL'""")
 @click.option('--tissues_cells',metavar=' | Selection of Brain Tissue and Cells',help="""Specify one or more of the Brain Tissue and Cells for which you want to performe TWAS and heritability. Following are the available options: 'Astrocytes' or 'Oligodendrocytes' or 'Neurons' or 'All_Cells' or 'Amygdala' or 'Anterior_cingulate' or 'Caudate' or 'Cerebellar' or 'Cerebellum' or 'Cortex' or 'Frontal_cortex' or 'Hippocampus' or 'Hypothalamus' or 'Nucleus_accumbens' or 'Putamen' or 'Spinal_cord' or 'Substantia_nigra' or 'All_Brain_tissue' or 'Everything'""")
 @click.option('--meta', metavar='| Analysis Type', help="""Analysis type for Meta-Analysis; Please enter 'fixed' for the fixed-effects or 'random' for random-effects""")
-def input_module_wrapper(input_txt,n_studies, ethnicity,analysis_list,tissues_cells,meta):
+@click.option('--lava_control_cases', metavar='| # of Control/cases', help="""Path to the text file containing the count of control/cases for each trait. Format with the column heading: 'file_location' \t '#Controls' \t '#Cases' """, default=None)
+@click.option('--gwas_format', metavar='| GWAS format', help="""Format of the GWASs which are given as input""", default='Regenie')
+def input_module_wrapper(input_txt,n_studies, ethnicity,analysis_list,tissues_cells,meta,lava_control_cases,gwas_format):
 
     analysis_list=analysis_list.split(',')
     tissues_cells=tissues_cells.split(',')
@@ -499,10 +607,11 @@ def input_module_wrapper(input_txt,n_studies, ethnicity,analysis_list,tissues_ce
     if meta_Analysis_op:
         metal_path_gz_files=metal_Analysis_Module(study_files,meta.upper())
     else:
-        Non_Metal_manager_ver2(study_files,hpc_bool=True)
+        Non_Metal_manager_ver2(study_files,gwas_format=gwas_format,lava_control_cases=lava_control_cases,hpc_bool=True)
 
     # rG_Node_Manager("")
     # pain_manager()
+
 
 if __name__ == "__main__":
     gini_gwas()
