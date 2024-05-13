@@ -1,1 +1,135 @@
-{"metal": {"meta_data": {"format_name": "metal", "format_source": "https://genome.sph.umich.edu/wiki/METAL_Documentation", "format_version": "20220726"}, "format_dict": {"MarkerName": "SNPID", "Allele1": "EA", "Allele2": "NEA", "Freq1": "EAF", "Effect": "BETA", "StdErr": "SE", "Pvalue": "P", "Direction": "DIRECTION", "TotalN": "N"}, "LAVA_Formatted_key": {"MarkerName": "MarkerName", "Allele1": "A1", "Allele2": "A2", "Effect": "BETA", "Pvalue": "P", "TotalN": "N"}}, "regenie": {"meta_data": {"format_name": "regenie", "format_source_1": "https://rgcgithub.github.io/regenie/", "format_source_2": "https://github.com/rgcgithub/regenie/blob/master/example/test_bin_out_firth_Y1.regenie", "format_version": "20220726", "format_cite_name": "REGENIE", "format_separator": " ", "format_na": "NA", "format_comment": null, "format_col_order": ["CHROM", "GENPOS", "ID", "ALLELE0", "ALLELE1", "A1FREQ", "N", "TEST", "BETA", "SE", "CHISQ", "LOG10P"], "last_check_date": 20230501}, "format_dict": {"ID": "SNPID", "CHROM": "CHR", "GENPOS": "POS", "ALLELE0": "NEA", "ALLELE1": "EA", "A1FREQ": "EAF", "N": "N", "INFO": "INFO", "BETA": "BETA", "SE": "SE", "CHISQ": "CHISQ", "LOG10P": "LOG10P"}, "LAVA_Formatted_key": {"ID": "MarkerName", "ALLELE0": "A2", "ALLELE1": "A1", "N": "N", "BETA": "BETA"}}}
+{
+    "metal": 
+        {
+            "meta_data": 
+                {
+                    "format_name": "metal", 
+                    "format_source": "https://genome.sph.umich.edu/wiki/METAL_Documentation", 
+                    "format_version": "20220726"
+                }, 
+            "format_dict": 
+                {
+                    "MarkerName": "SNPID", 
+                    "Allele1": "EA", 
+                    "Allele2": "NEA", 
+                    "Freq1": "EAF", 
+                    "Effect": "BETA", 
+                    "StdErr": "SE", 
+                    "Pvalue": "P", 
+                    "Direction": "DIRECTION", 
+                    "TotalN": "N"
+                }, 
+            "LAVA_Formatted_key": 
+                {
+                    "MarkerName": "MarkerName", 
+                    "Allele1": "A1", 
+                    "Allele2": "A2", 
+                    "Effect": "BETA", 
+                    "Pvalue": "P", 
+                    "TotalN": "N"
+                }
+        }, 
+    "regenie": 
+        {
+            "meta_data": 
+                {
+                    "format_name": "regenie", 
+                    "format_source_1": "https://rgcgithub.github.io/regenie/", 
+                    "format_source_2": "https://github.com/rgcgithub/regenie/blob/master/example/test_bin_out_firth_Y1.regenie", 
+                    "format_version": "20220726", 
+                    "format_cite_name": "REGENIE", 
+                    "format_separator": " ", 
+                    "format_na": "NA", 
+                    "format_comment": null, 
+                    "format_col_order": ["CHROM", "GENPOS", "ID", "ALLELE0", "ALLELE1", "A1FREQ", "N", "TEST", "BETA", "SE", "CHISQ", "LOG10P"], 
+                    "last_check_date": 20230501
+                }, 
+            "format_dict": 
+                {
+                    "ID": "SNPID", 
+                    "CHROM": "CHR", 
+                    "GENPOS": "POS", 
+                    "ALLELE0": "NEA", 
+                    "ALLELE1": "EA", 
+                    "A1FREQ": "EAF", 
+                    "N": "N", 
+                    "INFO": "INFO", 
+                    "BETA": "BETA", 
+                    "SE": "SE", 
+                    "CHISQ": "CHISQ", 
+                    "LOG10P": "LOG10P"
+                }, 
+            "LAVA_Formatted_key": 
+                {
+                    "ID": "MarkerName", 
+                    "ALLELE0": "A2", 
+                    "ALLELE1": "A1", 
+                    "N": "N", 
+                    "BETA": "BETA"
+                }
+        }, 
+        "updated_bolt_lmm": 
+            {
+                "meta_data": {
+                    "format_name": ".stats",
+                    "format_source": "https://alkesgroup.broadinstitute.org/BOLT-LMM/BOLT-LMM_manual.html",
+                    "format_version": "v2.4 (July 22, 2022)",
+                    "software_license": "BOLT-LMM is free software under the GNU General Public License v3.0 (GPLv3).",
+                    "format_citation": "Loh, P. R., Tucker, G., Bulik-Sullivan, B. K., Vilhjalmsson, B. J., Finucane, H. K., Salem, R. M., ... & Price, A. L. (2015). Efficient Bayesian mixed-model analysis increases association power in large cohorts. Nature genetics, 47(3), 284-290."
+                }, 
+                "format_dict": 
+                    {
+                        "SNP": "SNPID",
+                        "CHR": "CHR",
+                        "BP": "POS",
+                        "A2": "NEA",
+                        "A1": "EA",
+                        "A1FREQ": "FRQ",
+                        "BETA": "BETA",
+                        "SE": "SE",
+                        "PVAL": "P",
+                        "N":"N"
+                    }, 
+                "LAVA_Formatted_key": 
+                    {
+                        "SNP": "MarkerName", 
+                        "A2": "A2", 
+                        "A1": "A1", 
+                        "N": "N", 
+                        "PVAL": "P", 
+                        "BETA": "BETA"
+                    }
+            }, 
+            "LAVA_Subcortical_GWAS": 
+                {
+                    "meta_data": {
+                        "format_name": ".stats",
+                        "format_source": "https://alkesgroup.broadinstitute.org/BOLT-LMM/BOLT-LMM_manual.html",
+                        "format_version": "v2.4 (July 22, 2022)",
+                        "software_license": "BOLT-LMM is free software under the GNU General Public License v3.0 (GPLv3).",
+                        "format_citation": "Loh, P. R., Tucker, G., Bulik-Sullivan, B. K., Vilhjalmsson, B. J., Finucane, H. K., Salem, R. M., ... & Price, A. L. (2015). Efficient Bayesian mixed-model analysis increases association power in large cohorts. Nature genetics, 47(3), 284-290."
+                    }, 
+                    "format_dict": 
+                        {
+                            "rsid": "SNPID",
+                            "CHR": "CHR",
+                            "BP": "POS",
+                            "a2": "NEA",
+                            "a1": "EA",
+                            "FreqA1": "FRQ",
+                            "BETA": "BETA",
+                            "SE": "SE",
+                            "PVAL": "P",
+                            "N":"N"
+                        }, 
+                    "LAVA_Formatted_key": 
+                        {
+                            "rsid": "MarkerName", 
+                            "a2": "A2", 
+                            "a1": "A1", 
+                            "N": "N", 
+                            "P": "P", 
+                            "BETA": "BETA"
+                        }
+                }
+}

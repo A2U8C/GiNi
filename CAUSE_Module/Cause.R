@@ -6,6 +6,25 @@ bfile_reference = arg[3]; # "/Volumes/faculty/njahansh/nerds/ravi/genetics/LAVA-
 input_trait_name_conv = unlist(strsplit(arg[4]," ")); #[snp,beta,se,A1,A2,p]
 out.fname = arg[5];
 output_path=arg[6];
+pval_thresh_2 = arg[7]#1e-3;
+
+
+# input_trait = "/Volumes/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_Inputs_GiNi_Formatted/UKBB_HUNT___COPC.csv";
+# enigma_trait = "/Volumes/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/LAVA_Module/Enigma//ENIGMA3_mixed_se_wTHICK_Mean_superiorfrontal_thickavg_20200522.txt.gz";
+# bfile_reference = "/Volumes/faculty/njahansh/nerds/ravi/genetics/LAVA-main/support_data/eur/g1000_eur"; # "/Volumes/faculty/njahansh/nerds/ravi/genetics/LAVA-main/support_data/eur/g1000_eur"
+# input_trait_name_conv = unlist(strsplit("SNP BETA SE A1 A2 PVAL"," ")); #[snp,beta,se,A1,A2,p]
+# out.fname = "COPC__superiorfrontal" ;
+# output_path="/Volumes/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_ABCD_X_ENIGMA/Exta_temp_files/CAUSE_Out/COPC/wTHICK";
+
+# input_trait = "//smb-ifs.ini.usc.edu/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_Inputs_GiNi_Formatted/UKBB_HUNT___COPC.csv";
+# enigma_trait = "//smb-ifs.ini.usc.edu/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/LAVA_Module/Enigma//ENIGMA3_mixed_se_wTHICK_Mean_superiorfrontal_thickavg_20200522.txt.gz";
+# bfile_reference = "///smb-ifs.ini.usc.edu/faculty/njahansh/nerds/ravi/genetics/LAVA-main/support_data/eur/g1000_eur"; # "/Volumes/faculty/njahansh/nerds/ravi/genetics/LAVA-main/support_data/eur/g1000_eur"
+# input_trait_name_conv = unlist(strsplit("SNP BETA SE A1 A2 PVAL"," ")); #[snp,beta,se,A1,A2,p]
+# out.fname = "COPC__superiorfrontal" ;
+# output_path="//smb-ifs.ini.usc.edu/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_ABCD_X_ENIGMA/Exta_temp_files/CAUSE_Out/COPC/wTHICK";
+pval_thresh = 0.001;#1e-3;
+
+
 
 input_trait_name=  tail(strsplit(strsplit(tail(strsplit(input_trait, "/")[[1]], 1), "\\.")[[1]][1], "____")[[1]], 1)
 file_enigma_name=  unlist(strsplit(strsplit(enigma_trait, "ENIGMA3_mixed_se_")[[1]][2], "_"))
@@ -72,7 +91,6 @@ library(ggpubr)
 
 set.seed(100);
 r2_thresh = 0.01;
-pval_thresh = 1e-3;
 
 input_trait_file <- read_tsv(input_trait);
 Enigma_trait_file <- read_tsv(enigma_trait);

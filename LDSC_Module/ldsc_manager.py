@@ -16,7 +16,7 @@ def General_Munge(filePathInp:str,kwargs):
     filePathInp=filePathInp.replace("\n","")
     filePathInp=filePathInp.replace("\r","")
     
-    df=pd.read_csv(filePathInp,sep="\t",nrows=15)
+    # df=pd.read_csv(filePathInp,sep="\t",nrows=15)
     
     fileName=filePathInp.split("/")[-1]#.split(".")[0]
     output_file_name=CONSTANTS.file_name_process(fileName)
@@ -24,7 +24,7 @@ def General_Munge(filePathInp:str,kwargs):
     if kwargs.pop("OR",False):
         new_el+=f"""--signed-sumstats {kwargs.pop("signed_sumstats","OR")},1 \
             """
-    else:
+    elif "signed_sumstats" in kwargs:
         new_el+=f"""--signed-sumstats {kwargs.pop("signed_sumstats","BETA")},0 \
             """
     # with open('/ifs/loni/faculty/njahansh/nerds/ankush/GiNi_post_GWAS_processing/association_format.json', 'r') as json_file:
@@ -180,7 +180,9 @@ def Heritability_Log_Extraction(input_file_arr:list):
         df_final = pd.concat([df_final, new_row_df], ignore_index=True)
 
 
-    df_final.to_csv(CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri__results"]+f"/{out_file_name}traits.csv",index=False)
+    out_csv_file=CONSTANTS.Extra_temp_files_dict["extras_LDSC_Heri__results"]+f"/{out_file_name}traits.csv"
+    df_final.to_csv(out_csv_file,index=False)
+    return out_csv_file
 
 
 def CellTypeLDSC(files_Munged:str,CellAnalysisName:str,LDCTSFile:str):
@@ -278,6 +280,7 @@ def rG_Log_Extraction(filePath:list,file_name_out:str="Global_rG_"):
     df_final=pd.DataFrame(columns = ['p1', 'p2', 'rg','se', 'z','p'])
     file_name_out+=str(time.time())
 
+    print(filePath)
     for f_name in filePath:
         f_name=f_name.strip("\n").strip("\r")
         if not (f_name and os.path.exists(f_name)):
@@ -313,6 +316,8 @@ def rG_Log_Extraction(filePath:list,file_name_out:str="Global_rG_"):
 
                 df_final = pd.concat([df_final, new_row_df], ignore_index=True)
 
-    df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv(CONSTANTS.Extra_temp_files_dict["rG_CSV_files"]+"/"+file_name_out+".csv",index=False)
+    csv_out_rG_path=CONSTANTS.Extra_temp_files_dict["rG_CSV_files"]+"/"+file_name_out+".csv"
+    df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv(csv_out_rG_path,index=False)
     # df_final[['p1', 'p2', 'rg','se', 'z','p','Log_File_result']].to_csv("/ifs/loni/faculty/njahansh/nerds/ankush/for_Ravi/Pain_Genetics/Pain_rG/Global_rG_COPC.csv",index=False)
+    return csv_out_rG_path
 
