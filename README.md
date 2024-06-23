@@ -1,7 +1,7 @@
 # GiNi-GWAS post-GWAS process: 
-## Segment, Measure and AutoQC the midsagittal Corpus Callosum
+## Python-based, post-GWAS processing and analysis pipeline 
 
-GiNi is a automated pipeline built for post-GWAS analysis. With GWAS summary statistics as input, the pipeline processes and perform a set of comprehensive analyses. GiNi includes the following modules:
+GiNi is a automated pipeline built for post-GWAS analysis. With GWAS summary statistics as input, the pipeline processes and perform a set of comprehensive analyses. Uses brain gene-expression and splicing data resources for analysis. GiNi includes the following modules:
 * [Global Genetic Correlation](https://github.com/bulik/ldsc)
 * [Local Genetic Correlation](https://github.com/josefin-werme/LAVA)
 * [Mendelian Randomization](https://github.com/jean997/cause)
