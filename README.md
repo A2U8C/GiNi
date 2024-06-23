@@ -29,33 +29,58 @@ pip install -r requirements.txt
 pip install .
 ```
 
-## To install underlying tools:
+## Prepare underlying tools:
 ```bash
 ## Run the following python script, to create environments and other tools which will be required by GiNi
 python setup_tools_Gini.py
+wget -O output_filename.ext https://www.dropbox.com/s/GiNi_underlying_data?dl=1
 ```
 
-## Input Preprocessing:
-All the MR images should be registred to MNI 1mm template(182 X 218 X 182) with 6dof. You can use the template provided in the "model" folder on github. You can use the FSL's flirt command for linear registration:
-```bash
-flirt -in ${inpdir}/${subj}.nii.gz \
-	-ref ${MNI_1mm_template} \
-  	-out ${outdir}/${subj} \
- 	-dof 6 \
-  	-cost mutualinfo \
-  	-omat ${outdir}/matrices/${subj}_MNI_6p.xfm
+## Input file fomat:
+GiNi expect `input_txt` argument which is path to the input file which contains all GWAS files path. Example of `input_txt` input
+```
+/path/to/GWAS/stats/studyName__TraitName
+```
+
+```
+/path/to/GWAS/stats/ukbb_regenie/ukbb__Total_MeanThickness.regenie
+/path/to/GWAS/stats/ukbb_regenie/ukbb__Witelson5_Genu_Area.regenie
+/path/to/GWAS/stats/ukbb_regenie/ukbb__Witelson5_Isthmus_MeanThickness.regenie
+/path/to/GWAS/stats/abcd_regenie/abcd__Total_MeanThickness.regenie
+/path/to/GWAS/stats/abcd_regenie/abcd__Witelson5_Genu_Area.regenie
+/path/to/GWAS/stats/abcd_regenie/abcd__Witelson5_Isthmus_MeanThickness.regenie
 ```
 
 ## Test the tool:
 ```bash
-smacc -f ./subject_list.txt -o ./smacc_output -m t1
+python gini_main.py input-module-wrapper \
+	--input_txt /path/to/GWAS/stats/ABCD_UKBB_input.txt \
+	--n_studies 1 \
+	--ethnicity European \
+	--analysis_list Heritability \
+	--tissues_cells Astrocytes \
+	--meta random \
+	--gwas_format regenie \
+	--lava_control_cases /path/to/Case_Controls/COPC_Case_control.txt
 ```
--f : Text file with a list of absolute paths to the niftis to be processed and names to save the outputs for each subject. Check example text file "subject_list.txt" provided. <br />
--o : Absolute path of output folder <br />
--m : Modality of the images to be processed (t1/t2/flair) <br />
--q : Optional flag to perform Automated QC on the segmentations <br />
-The final output is a csv which will contain all the extracted shape metrics and a column "QC label" indicating whether the segmentations were accurate(0)/fail(1) if the QC flag is provided.
 
+--input_txt : To the input file
+
+--n_studies : Number of studies, to verify if Meta-Analysis is required
+
+--ethnicity : Ethnicity for selecting the appropriate reference 
+
+--analysis_list : Comma seperated analysis list or 'ALL' for all analysis
+
+--tissues_cells : Brain tissue and cells to performe TWAS and heritability
+
+--meta : Analysis type for meta-analysis
+
+--gwas_format : Format of the input GWAS
+
+--control_cases : File containing count of control/cases for each trait
+
+--computing_options : If HPC is available, else tests will run sequentially
 
 ## If you use this code, please cite the following:
 * Willer, C. J., et al. METAL: fast and efficient meta-analysis of genomewide association scans. Bioinformatics 26, 2190–2191 (2010).
