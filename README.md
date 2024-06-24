@@ -1,3 +1,6 @@
+
+![Build Status](https://img.shields.io/badge/status-developing-brightgreen)
+
 # GiNi-GWAS post-GWAS process: 
 ## Python-based, post-GWAS processing and analysis pipeline 
 
